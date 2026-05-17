@@ -111,18 +111,15 @@ var app = builder.Build();
 
 app.UseCors("DevCors");
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+//if (!app.Environment.IsDevelopment())
+//{
+//    app.UseHttpsRedirection();
+//}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -156,5 +153,6 @@ app.MapControllers();
 //         }
 //     }
 // }
+app.MapGet("/", () => Results.Ok("GoodHamburger API is running!"));
 
 app.Run();
