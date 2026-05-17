@@ -27,7 +27,7 @@ namespace GoodHamburger.Application.Tests.Services
         public async Task ObterAtivasAsync_DeveMapearERetornarPromocoesAtivas()
         {
             var promocao = new Promocao("Combo", 0.10m);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
             var listaMock = new List<Promocao> { promocao };
 
             _promocaoRepoMock.Setup(r => r.ObterTodasAtivasAsync()).ReturnsAsync(listaMock);
@@ -40,7 +40,7 @@ namespace GoodHamburger.Application.Tests.Services
             var dto = result.First();
             dto.Nome.Should().Be("Combo");
             dto.Percentual.Should().Be(0.10m);
-            dto.Requisitos.Should().Contain(TipoItem.Sanduiche);
+            dto.RequisitosTipo.Should().Contain(TipoItem.Sanduiche);
         }
     }
 }

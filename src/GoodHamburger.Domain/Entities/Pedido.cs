@@ -11,64 +11,60 @@ namespace GoodHamburger.Domain.Entities
         public decimal ValorDesconto { get; private set; }
         public decimal TotalFinal { get; private set; }
         public Guid? PromocaoId { get; private set; }
-        public Pedido() : base() { }
+        public string? ObservacaoGeral { get; set; }
 
-        public void AdicionarProduto(Item produto)
+        public void AdicionarItem(Item produto, int quantidade = 1, string? observacao = null)
         {
-            if (_itens.Any(i => i.Tipo == produto.Tipo))
-                throw new DomainException($"O pedido já contém um item do tipo {produto.Tipo}.");
-
-            if (_itens.Count >= 3)
-                throw new DomainException("O pedido já atingiu o limite máximo de 3 itens.");
-
-            _itens.Add(new PedidoItem(produto));
-
-            DescontoPercentual = 0;
+            _itens.Add(new PedidoItem(produto, quantidade, observacao));
             RecalcularTotais();
         }
 
-        public void RemoverProduto(Guid produtoId)
+        public void DefinirObservacao(string observacao) => ObservacaoGeral = observacao;
+
+        public void RemoverItem(Guid pedidoItemId)
         {
-            var item = _itens.FirstOrDefault(i => i.Id == produtoId);
-            if (item != null)
-            {
-                _itens.Remove(item);
-
-                DescontoPercentual = 0;
-                RecalcularTotais();
-            }
-        }
-
-        private void RecalcularTotais()
-        {
-            Subtotal = _itens.Sum(i => i.PrecoUnitario);
-            ValorDesconto = Subtotal * DescontoPercentual;
-            TotalFinal = Subtotal - ValorDesconto;
-
-            RegistrarAlteracao();
+            var item = _itens.FirstOrDefault(i => i.Id == pedidoItemId)
+                ?? throw new DomainException("Item não encontrado no pedido.");
+            _itens.Remove(item);
+            RecalcularTotais();
         }
 
         public void AplicarPromocoes(IEnumerable<Promocao> promocoesDisponiveis)
         {
-            var tiposNoPedido = _itens.Select(i => i.Tipo).ToList();
-
-            var melhorPromocao = promocoesDisponiveis
-                .Where(p => p.ContemTodosRequisitos(tiposNoPedido) && p.Requisitos.Count == tiposNoPedido.Count)
+            var melhor = promocoesDisponiveis
+                .Where(p => p.PodeSerAplicada(_itens))
                 .MaxBy(p => p.Percentual);
 
-            if (melhorPromocao != null)
+            if (melhor != null)
             {
-                DescontoPercentual = melhorPromocao.Percentual;
-                PromocaoId = melhorPromocao.Id;
+                DescontoPercentual = melhor.Percentual;
+                PromocaoId = melhor.Id;
             }
             else
             {
-                
                 DescontoPercentual = 0;
-                ValorDesconto = 0;
                 PromocaoId = null;
             }
+            RecalcularTotais();
+        }
 
+        private void RecalcularTotais()
+        {
+            Subtotal = _itens.Sum(i => i.PrecoTotal);
+            ValorDesconto = Subtotal * DescontoPercentual;
+            TotalFinal = Subtotal - ValorDesconto;
+            RegistrarAlteracao();
+        }
+
+        public PedidoItem? ObterItem(Guid pedidoItemId) => _itens.FirstOrDefault(i => i.Id == pedidoItemId);
+
+        public void LimparItens()
+        {
+            while (_itens.Any())
+            {
+                var item = _itens.First();
+                _itens.Remove(item);
+            }
             RecalcularTotais();
         }
     }

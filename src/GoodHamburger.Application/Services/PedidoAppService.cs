@@ -13,13 +13,18 @@ namespace GoodHamburger.Application.Services
     {
         private readonly IPedidoRepository _pedidoRepository;
         private readonly IItemRepository _itemRepository;
-        private readonly IPromocaoRepository _promocao;
+        private readonly IPromocaoRepository _promocaoRepository;
         private readonly IValidator<PedidoRequest> _validator;
-        public PedidoAppService(IPedidoRepository pedidoRepository, IItemRepository itemRepository, IPromocaoRepository Promocao , IValidator<PedidoRequest> validator)
+
+        public PedidoAppService(
+            IPedidoRepository pedidoRepository,
+            IItemRepository itemRepository,
+            IPromocaoRepository promocaoRepository,
+            IValidator<PedidoRequest> validator)
         {
             _pedidoRepository = pedidoRepository;
             _itemRepository = itemRepository;
-            _promocao = Promocao;
+            _promocaoRepository = promocaoRepository;
             _validator = validator;
         }
 
@@ -29,22 +34,39 @@ namespace GoodHamburger.Application.Services
             if (!validationResult.IsValid)
                 throw new DomainException(validationResult.Errors.First().ErrorMessage);
 
-            var itensNoBanco = await _itemRepository.GetItensPorIdsAsync(request.ItensIds);
-            if (itensNoBanco.Count() != request.ItensIds.Distinct().Count())
-                throw new DomainException("Um ou mais itens selecionados são inválidos.");
+            if (request.Itens == null || !request.Itens.Any())
+                throw new DomainException("Nenhum item informado.");
 
             var novoPedido = new Pedido();
-            foreach (var item in itensNoBanco)
+            if (!string.IsNullOrWhiteSpace(request.Observacao))
+                novoPedido.DefinirObservacao(request.Observacao);
+
+            foreach (var itemReq in request.Itens)
             {
-                novoPedido.AdicionarProduto(item);
+                var produto = await _itemRepository.GetByIdWithGruposOpcoesAsync(itemReq.ItemId)
+                    ?? throw new DomainException($"Item {itemReq.ItemId} não encontrado.");
+
+                novoPedido.AdicionarItem(produto, itemReq.Quantidade, itemReq.Observacao);
+                var pedidoItem = novoPedido.Itens.First(i => i.ProdutoId == produto.Id);
+
+                foreach (var opc in itemReq.OpcoesSelecionadas)
+                {
+                    var grupo = produto.GruposOpcoes
+                        .Select(ig => ig.GrupoOpcao)
+                        .FirstOrDefault(g => g.Opcoes.Any(o => o.Id == opc.OpcaoId));
+
+                    if (grupo == null)
+                        throw new DomainException($"A opção {opc.OpcaoId} não está disponível para o item {produto.Nome}.");
+
+                    var opcao = grupo.Opcoes.First(o => o.Id == opc.OpcaoId);
+                    pedidoItem.AdicionarOpcao(opcao, grupo, opc.Quantidade);
+                }
             }
 
-            var regrasAtivas = await _promocao.ObterTodasAtivasAsync();
-
-            novoPedido.AplicarPromocoes(regrasAtivas);
+            var promocoes = await _promocaoRepository.ObterTodasAtivasAsync();
+            novoPedido.AplicarPromocoes(promocoes);
 
             await _pedidoRepository.AddAsync(novoPedido);
-
             return novoPedido.Adapt<PedidoResponse>();
         }
 
@@ -63,10 +85,8 @@ namespace GoodHamburger.Application.Services
         public async Task RemoverAsync(Guid id)
         {
             var pedido = await _pedidoRepository.GetByIdAsync(id);
-            if (pedido != null)
-            {
-                await _pedidoRepository.DeleteAsync(pedido);
-            }
+            if (pedido == null) throw new DomainException("Pedido não encontrado.");
+            await _pedidoRepository.DeleteAsync(pedido);
         }
 
         public async Task AtualizarPedidoAsync(Guid id, PedidoRequest request)
@@ -75,43 +95,39 @@ namespace GoodHamburger.Application.Services
             if (!validationResult.IsValid)
                 throw new DomainException(validationResult.Errors.First().ErrorMessage);
 
-            var pedido = await _pedidoRepository.GetPedidoComItensAsync(id);
-            if (pedido == null) throw new DomainException("Pedido não encontrado.");
+            var pedido = await _pedidoRepository.GetPedidoComItensAsync(id)
+                ?? throw new DomainException("Pedido não encontrado.");
 
-            var idsDesejados = request.ItensIds.ToList();
-            var idsAtuais = pedido.Itens.Select(i => i.Id).ToList();
+            pedido.LimparItens();
+            await _pedidoRepository.SaveChangesAsync();
 
-            var idsParaRemover = idsAtuais.Except(idsDesejados).ToList();
-            var idsParaAdicionar = idsDesejados.Except(idsAtuais).ToList();
-
-            if (!idsParaRemover.Any() && !idsParaAdicionar.Any()) return;
-
-            foreach (var idRemover in idsParaRemover)
+            foreach (var itemReq in request.Itens)
             {
-                pedido.RemoverProduto(idRemover);
-            }
+                var produto = await _itemRepository.GetByIdWithGruposOpcoesAsync(itemReq.ItemId)
+                    ?? throw new DomainException($"Item {itemReq.ItemId} não encontrado.");
 
-            if (idsParaAdicionar.Any())
-            {
-                var produtosNovos = await _itemRepository.GetItensPorIdsAsync(idsParaAdicionar);
-                foreach (var produto in produtosNovos)
+                pedido.AdicionarItem(produto, itemReq.Quantidade, itemReq.Observacao);
+                var pedidoItem = pedido.Itens.First(i => i.ProdutoId == produto.Id);
+
+                foreach (var opc in itemReq.OpcoesSelecionadas ?? new())
                 {
-                    pedido.AdicionarProduto(produto);
+                    var grupo = produto.GruposOpcoes
+                        .Select(ig => ig.GrupoOpcao)
+                        .FirstOrDefault(g => g.Opcoes.Any(o => o.Id == opc.OpcaoId));
+
+                    if (grupo == null)
+                        throw new DomainException($"A opção {opc.OpcaoId} não está disponível para o item {produto.Nome}.");
+
+                    var opcao = grupo.Opcoes.First(o => o.Id == opc.OpcaoId);
+                    pedidoItem.AdicionarOpcao(opcao, grupo, opc.Quantidade);
                 }
             }
 
-            if (pedido.PromocaoId.HasValue)
-            {
-                var promocaoOriginal = await _promocao.BuscarPromocaoComRequisitosPorIdAsync(pedido.PromocaoId.Value);
+            if (!string.IsNullOrWhiteSpace(request.Observacao))
+                pedido.DefinirObservacao(request.Observacao);
 
-                var regrasParaValidar = promocaoOriginal != null ? new List<Promocao> { promocaoOriginal } : new List<Promocao>();
-
-                pedido.AplicarPromocoes(regrasParaValidar);
-            }
-            else
-            {
-                pedido.AplicarPromocoes(new List<Promocao>());
-            }
+            var promocoes = await _promocaoRepository.ObterTodasAtivasAsync();
+            pedido.AplicarPromocoes(promocoes);
 
             await _pedidoRepository.SaveChangesAsync();
         }

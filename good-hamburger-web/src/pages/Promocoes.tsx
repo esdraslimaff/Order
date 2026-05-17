@@ -16,16 +16,13 @@ export const Promocoes: React.FC = () => {
         setPromocoes([]);
       }
     };
-
     carregarPromocoes();
   }, []);
 
   const alternarStatusPromocao = async (promo: PromocaoDto) => {
     try {
       await apiClient.patch(`/Promocao/${promo.id}/alternar-status`);
-      
-      // Atualiza o estado localmente sem precisar fazer outro GET
-      setPromocoes(prev => 
+      setPromocoes(prev =>
         prev ? prev.map(p => p.id === promo.id ? { ...p, ativo: !p.ativo } : p) : null
       );
     } catch (error) {
@@ -65,11 +62,7 @@ export const Promocoes: React.FC = () => {
       ) : (
         <div className="row justify-content-center">
           {promocoes.map(promo => (
-            <PromocaoCard 
-              key={promo.id} 
-              promocao={promo} 
-              onStatusToggled={alternarStatusPromocao} 
-            />
+            <PromocaoCard key={promo.id} promocao={promo} onStatusToggled={alternarStatusPromocao} />
           ))}
         </div>
       )}

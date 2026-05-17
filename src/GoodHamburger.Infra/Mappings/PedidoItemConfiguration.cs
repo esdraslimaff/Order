@@ -11,22 +11,17 @@ namespace GoodHamburger.Infra.Mappings
             builder.ToTable("PedidoItens");
             builder.HasKey(pi => pi.Id);
 
-            builder.Property(pi => pi.Nome)
-                   .IsRequired()
-                   .HasMaxLength(100);
+            builder.Property(pi => pi.Nome).IsRequired().HasMaxLength(200);
+            builder.Property(pi => pi.PrecoUnitario).HasPrecision(18, 2).IsRequired();
+            builder.Property(pi => pi.Quantidade).IsRequired().HasDefaultValue(1);
+            builder.Property(pi => pi.Observacao).HasMaxLength(300);
 
-            builder.Property(x => x.Id)
-                    .ValueGeneratedNever();
+            builder.Property(pi => pi.Id).ValueGeneratedNever();
 
-            builder.Property(pi => pi.PrecoUnitario)
-                   .HasPrecision(18, 2)
-                   .IsRequired();
-
-            builder.Property(pi => pi.Tipo)
-                   .IsRequired();
-
-            builder.Property(pi => pi.ProdutoId)
-                   .IsRequired();
+            builder.HasMany(pi => pi.OpcoesSelecionadas)
+                   .WithOne()
+                   .HasForeignKey(o => o.PedidoItemId)
+                   .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

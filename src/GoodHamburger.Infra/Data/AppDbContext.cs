@@ -12,6 +12,10 @@ namespace GoodHamburger.Infra.Data
         public DbSet<Promocao> Promocao => Set<Promocao>();
         public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();
         public DbSet<Usuario> Usuarios => Set<Usuario>();
+        public DbSet<GrupoOpcao> GruposOpcoes { get; set; }
+        public DbSet<Opcao> Opcoes { get; set; }
+        public DbSet<ItemGrupoOpcao> ItensGruposOpcoes { get; set; }
+        public DbSet<PedidoItemOpcao> PedidoItensOpcoes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

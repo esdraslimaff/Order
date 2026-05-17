@@ -39,7 +39,7 @@ export const Pedidos: React.FC = () => {
     if (resultado.isConfirmed) {
       try {
         await apiClient.delete(`/Pedidos/${id}`);
-        await carregarPedidos(); // Recarrega a lista
+        await carregarPedidos();
         Swal.fire('Deletado!', 'O pedido foi excluído com sucesso.', 'success');
       } catch (error) {
         Swal.fire('Erro!', 'Não foi possível excluir o pedido.', 'error');
@@ -51,9 +51,7 @@ export const Pedidos: React.FC = () => {
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>Histórico de Pedidos 📋</h3>
-        <button className="btn btn-primary" onClick={() => navigate('/novo-pedido')}>
-          Novo Pedido
-        </button>
+        <button className="btn btn-primary" onClick={() => navigate('/novo-pedido')}>Novo Pedido</button>
       </div>
 
       {listaPedidos === null ? (
@@ -64,9 +62,7 @@ export const Pedidos: React.FC = () => {
       ) : listaPedidos.length === 0 ? (
         <div className="alert alert-info text-center">
           Nenhum pedido registrado até o momento. <br />
-          <button className="btn btn-link" onClick={() => navigate('/novo-pedido')}>
-            Que tal fazer o primeiro?
-          </button>
+          <button className="btn btn-link" onClick={() => navigate('/novo-pedido')}>Que tal fazer o primeiro?</button>
         </div>
       ) : (
         <div className="table-responsive">
@@ -90,17 +86,23 @@ export const Pedidos: React.FC = () => {
                   </td>
                   <td>
                     {pedido.itens.map(item => (
-                      <span key={item.id} className="badge bg-light text-dark border me-1">
-                        {item.nome}
-                      </span>
+                      <div key={item.id} className="mb-1">
+                        <span className="badge bg-light text-dark border me-1">{item.quantidade}x {item.nome}</span>
+                        {item.opcoesSelecionadas.length > 0 && (
+                          <ul className="small mb-0 ps-3">
+                            {item.opcoesSelecionadas.map(opcao => (
+                              <li key={opcao.id}>{opcao.quantidade}x {opcao.nomeOpcao} ({opcao.nomeGrupo})</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     ))}
                   </td>
                   <td>R$ {pedido.subtotal.toFixed(2)}</td>
                   <td>
                     {pedido.descontoPercentual > 0 ? (
                       <span className="text-success small">
-                        -R$ {pedido.valorDesconto.toFixed(2)}
-                        <br />({(pedido.descontoPercentual * 100).toFixed(0)}%)
+                        -R$ {pedido.valorDesconto.toFixed(2)}<br />({(pedido.descontoPercentual * 100).toFixed(0)}%)
                       </span>
                     ) : (
                       <span className="text-muted small">Sem desconto</span>
@@ -109,19 +111,11 @@ export const Pedidos: React.FC = () => {
                   <td className="fw-bold text-primary">R$ {pedido.totalFinal.toFixed(2)}</td>
                   <td className="text-center">
                     <div className="btn-group">
-                      <button className="btn btn-sm btn-outline-info" onClick={() => navigate(`/pedidos/${pedido.id}`)}>
-                        Detalhes
-                      </button>
-
-                      {/* Controle de acesso baseado na role, igual ao <AuthorizeView Roles="Admin"> */}
+                      <button className="btn btn-sm btn-outline-info" onClick={() => navigate(`/pedidos/${pedido.id}`)}>Detalhes</button>
                       {usuario?.role === 'Admin' && (
                         <>
-                          <button className="btn btn-sm btn-outline-warning" onClick={() => navigate(`/pedidos/editar/${pedido.id}`)}>
-                            Editar
-                          </button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => confirmarExclusao(pedido.id)}>
-                            Excluir
-                          </button>
+                          <button className="btn btn-sm btn-outline-warning" onClick={() => navigate(`/pedidos/editar/${pedido.id}`)}>Editar</button>
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => confirmarExclusao(pedido.id)}>Excluir</button>
                         </>
                       )}
                     </div>

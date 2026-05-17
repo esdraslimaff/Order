@@ -7,19 +7,35 @@ namespace GoodHamburger.Domain.Tests.Entities
     public class PromocaoTests
     {
 
-        [Fact]
-        public void Construtor_QuandoParametrosForemValidos_DeveCriarEntidadeCorretamente()
+        private static Item CriarItem(string nome, decimal preco, TipoItem tipo, Guid? id = null)
         {
-            var nomeEsperado = "Sanduíche + Batata + Refrigerante";
-            var percentualEsperado = 0.20m;
+            if (id.HasValue)
+                return new Item(id.Value, nome, preco, tipo);
+            return new Item(nome, preco, tipo);
+        }
 
-            var promocao = new Promocao(nomeEsperado, percentualEsperado);
+        #region Construtor
 
-            promocao.Should().NotBeNull();
-            promocao.Nome.Should().Be(nomeEsperado);
-            promocao.Percentual.Should().Be(percentualEsperado);
+        [Fact]
+        public void Construtor_DeveCriarPromocaoAtivaComListasVazias()
+        {
+            var promocao = new Promocao("Combo Teste", 0.15m);
+
+            promocao.Nome.Should().Be("Combo Teste");
+            promocao.Percentual.Should().Be(0.15m);
             promocao.Ativo.Should().BeTrue();
-            promocao.Requisitos.Should().BeEmpty();
+            promocao.RequisitosTipo.Should().BeEmpty();
+            promocao.ItensObrigatoriosIds.Should().BeEmpty();
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        [InlineData(null)]
+        public void Construtor_ComNomeInvalido_DeveLancarExcecao(string nomeInvalido)
+        {
+            Action act = () => new Promocao(nomeInvalido, 0.10m);
+            act.Should().Throw<ArgumentException>();
         }
 
         [Theory]
@@ -27,117 +43,206 @@ namespace GoodHamburger.Domain.Tests.Entities
         [InlineData(-50)]
         [InlineData(1.1)]
         [InlineData(2)]
-        public void Construtor_QuandoPercentualForInvalido_DeveLancarExcecao(decimal percentualInvalido)
+        public void Construtor_ComPercentualForaDoIntervalo_DeveLancarExcecao(decimal percentualInvalido)
         {
-            Action acao = () => new Promocao("Promo", percentualInvalido);
-            acao.Should().Throw<ArgumentException>()
+            Action act = () => new Promocao("Promo", percentualInvalido);
+            act.Should().Throw<ArgumentException>()
                 .WithMessage("*percentual de desconto deve estar entre 0 e 1*");
         }
 
-        [Theory]
-        [InlineData("")]
-        [InlineData(" ")]
-        [InlineData(null)]
-        public void Construtor_QuandoNomeForVazioOuNulo_DeveLancarExcecao(string nomeInvalido)
+        #endregion
+
+        #region AdicionarRequisitoTipo
+
+        [Fact]
+        public void AdicionarRequisitoTipo_DeveAdicionarTipo()
         {
-            Action acao = () => new Promocao(nomeInvalido, 0.10m);
-            acao.Should().Throw<ArgumentException>();
+            var promocao = new Promocao("Teste", 0.10m);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+
+            promocao.RequisitosTipo.Should().ContainSingle()
+                .Which.Should().Be(TipoItem.Sanduiche);
         }
 
         [Fact]
-        public void AdicionarRequisito_QuandoItemForNovo_DeveAdicionarItemAListaDeRequisitos()
+        public void AdicionarRequisitoTipo_NaoDeveAdicionarDuplicado()
         {
-            
-            var promocao = new Promocao("Promoção Teste", 0.10m);
-          
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
+            var promocao = new Promocao("Teste", 0.10m);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
 
-            promocao.Requisitos.Should().HaveCount(1);
-            promocao.Requisitos.Should().Contain(r => r.TipoItem == TipoItem.Sanduiche);
+            promocao.RequisitosTipo.Should().HaveCount(1);
+        }
+
+        #endregion
+
+        #region AdicionarItemObrigatorio
+
+        [Fact]
+        public void AdicionarItemObrigatorio_DeveAdicionarId()
+        {
+            var promocao = new Promocao("Teste", 0.10m);
+            var id = Guid.NewGuid();
+            promocao.AdicionarItemObrigatorio(id);
+
+            promocao.ItensObrigatoriosIds.Should().ContainSingle()
+                .Which.Should().Be(id);
         }
 
         [Fact]
-        public void AdicionarRequisito_QuandoItemJaExistir_NaoDeveDuplicarRequisito()
+        public void AdicionarItemObrigatorio_NaoDeveDuplicar()
         {
-            
-            var promocao = new Promocao("Promoção Teste", 0.10m);
+            var promocao = new Promocao("Teste", 0.10m);
+            var id = Guid.NewGuid();
+            promocao.AdicionarItemObrigatorio(id);
+            promocao.AdicionarItemObrigatorio(id);
 
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
-          
-            promocao.Requisitos.Should().HaveCount(1, "o método não deve permitir itens duplicados na mesma promoção");
+            promocao.ItensObrigatoriosIds.Should().HaveCount(1);
+        }
+
+        #endregion
+
+        #region AlternarStatus
+
+        [Fact]
+        public void AlternarStatus_DeveInverterAtivo()
+        {
+            var promocao = new Promocao("Teste", 0.10m);
+            promocao.Ativo.Should().BeTrue();
+
+            promocao.AlternarStatus();
+            promocao.Ativo.Should().BeFalse();
+
+            promocao.AlternarStatus();
+            promocao.Ativo.Should().BeTrue();
+        }
+
+        #endregion
+
+        #region PodeSerAplicada
+
+        private List<PedidoItem> CriarItensPedido(params (Guid id, TipoItem tipo)[] itens)
+        {
+            return itens.Select(i => new PedidoItem(
+                CriarItem("Nome", 1m, i.tipo, i.id),
+                quantidade: 1
+            )).ToList();
         }
 
         [Fact]
-        public void ContemTodosRequisitos_QuandoPedidoContemExatamenteOsRequisitos_DeveRetornarTrue()
-        {
-            var promocao = new Promocao("Combo Completo", 0.20m);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
-            promocao.AdicionarRequisito(TipoItem.Acompanhamento);
-
-            var itensDoPedido = new List<TipoItem>
-            {
-                TipoItem.Sanduiche,
-                TipoItem.Acompanhamento
-            };
-
-            var resultado = promocao.ContemTodosRequisitos(itensDoPedido);
-
-            resultado.Should().BeTrue();
-        }
-
-        [Fact]
-        public void ContemTodosRequisitos_QuandoPedidoFaltaRequisito_DeveRetornarFalse()
+        public void PodeSerAplicada_ComApenasRequisitosTipo_DeveRetornarTrueQuandoTodosTiposPresentes()
         {
             var promocao = new Promocao("Combo", 0.20m);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
-            promocao.AdicionarRequisito(TipoItem.Acompanhamento);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Bebida);
 
-            var itensDoPedido = new List<TipoItem> { TipoItem.Sanduiche };
+            var itens = CriarItensPedido(
+                (Guid.NewGuid(), TipoItem.Sanduiche),
+                (Guid.NewGuid(), TipoItem.Bebida)
+            );
 
-            var resultado = promocao.ContemTodosRequisitos(itensDoPedido);
-
-            resultado.Should().BeFalse();
+            promocao.PodeSerAplicada(itens).Should().BeTrue();
         }
 
         [Fact]
-        public void ContemTodosRequisitos_QuandoPedidoTiverMaisItensQueORequisito_DeveRetornarTrue()
+        public void PodeSerAplicada_ComApenasRequisitosTipo_DeveRetornarFalseQuandoFaltaTipo()
         {
-            var promocao = new Promocao("Promo 2 itens", 0.15m);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
-            promocao.AdicionarRequisito(TipoItem.Bebida);
+            var promocao = new Promocao("Combo", 0.20m);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Bebida);
 
-            var itensDoPedido = new List<TipoItem>
-            {
-                TipoItem.Sanduiche,
-                TipoItem.Bebida,
-                TipoItem.Acompanhamento
-            };
+            var itens = CriarItensPedido(
+                (Guid.NewGuid(), TipoItem.Sanduiche)
+            );
 
-            var resultado = promocao.ContemTodosRequisitos(itensDoPedido);
-
-            resultado.Should().BeTrue();
+            promocao.PodeSerAplicada(itens).Should().BeFalse();
         }
 
         [Fact]
-        public void ContemTodosRequisitos_QuandoListaPedidoForVaziaOuNula_DeveRetornarFalse()
+        public void PodeSerAplicada_ComApenasItensObrigatorios_DeveRetornarTrueQuandoTodosIdsPresentes()
         {
-            var promocao = new Promocao("Combo", 0.10m);
-            promocao.AdicionarRequisito(TipoItem.Sanduiche);
+            var promocao = new Promocao("Especial", 0.15m);
+            var id1 = Guid.NewGuid();
+            var id2 = Guid.NewGuid();
+            promocao.AdicionarItemObrigatorio(id1);
+            promocao.AdicionarItemObrigatorio(id2);
 
-            promocao.ContemTodosRequisitos(new List<TipoItem>()).Should().BeFalse("lista vazia não atende requisitos");
-            promocao.ContemTodosRequisitos(null).Should().BeFalse("lista nula não atende requisitos e não deve quebrar a aplicação");
+            var itens = CriarItensPedido(
+                (id1, TipoItem.Sanduiche),
+                (id2, TipoItem.Bebida)
+            );
+
+            promocao.PodeSerAplicada(itens).Should().BeTrue();
         }
 
         [Fact]
-        public void ContemTodosRequisitos_QuandoPromocaoNaoPossuirRequisitos_DeveRetornarFalse()
+        public void PodeSerAplicada_ComApenasItensObrigatorios_DeveRetornarFalseQuandoFaltaId()
         {
-            var promocao = new Promocao("Promoção Fantasma", 0.10m);
-            var itensDoPedido = new List<TipoItem> { TipoItem.Sanduiche };
+            var promocao = new Promocao("Especial", 0.15m);
+            promocao.AdicionarItemObrigatorio(Guid.NewGuid());
+            promocao.AdicionarItemObrigatorio(Guid.NewGuid());
 
-            var resultado = promocao.ContemTodosRequisitos(itensDoPedido);
+            var itens = CriarItensPedido(
+                (Guid.NewGuid(), TipoItem.Sanduiche)
+            );
 
-            resultado.Should().BeFalse("uma promoção sem requisitos configurados não pode ser aplicada");
+            promocao.PodeSerAplicada(itens).Should().BeFalse();
         }
+
+        [Fact]
+        public void PodeSerAplicada_ComAmbosRequisitos_DeveRetornarTrueQuandoTodosAtendidos()
+        {
+            var promocao = new Promocao("Combo Específico", 0.25m);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Bebida);
+            var idSanduiche = Guid.NewGuid();
+            promocao.AdicionarItemObrigatorio(idSanduiche);
+
+            var itens = CriarItensPedido(
+                (idSanduiche, TipoItem.Sanduiche),
+                (Guid.NewGuid(), TipoItem.Bebida)
+            );
+
+            promocao.PodeSerAplicada(itens).Should().BeTrue();
+        }
+
+        [Fact]
+        public void PodeSerAplicada_ComAmbosRequisitos_DeveRetornarFalseQuandoFaltaItemObrigatorio()
+        {
+            var promocao = new Promocao("Combo Específico", 0.25m);
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+            promocao.AdicionarRequisitoTipo(TipoItem.Bebida);
+            promocao.AdicionarItemObrigatorio(Guid.NewGuid());
+
+            var itens = CriarItensPedido(
+                (Guid.NewGuid(), TipoItem.Sanduiche),
+                (Guid.NewGuid(), TipoItem.Bebida)
+            );
+
+            promocao.PodeSerAplicada(itens).Should().BeFalse();
+        }
+
+        [Fact]
+        public void PodeSerAplicada_SemRequisitos_DeveRetornarFalse()
+        {
+            var promocao = new Promocao("Vazia", 0.10m);
+            var itens = CriarItensPedido((Guid.NewGuid(), TipoItem.Sanduiche));
+
+            promocao.PodeSerAplicada(itens).Should().BeFalse();
+        }
+
+        [Fact]
+        public void PodeSerAplicada_PromocaoInativa_DeveRetornarFalse()
+        {
+            var promocao = new Promocao("Inativa", 0.10m);
+            promocao.AlternarStatus();
+            promocao.AdicionarRequisitoTipo(TipoItem.Sanduiche);
+
+            var itens = CriarItensPedido((Guid.NewGuid(), TipoItem.Sanduiche));
+
+            promocao.PodeSerAplicada(itens).Should().BeFalse();
+        }
+
+        #endregion
     }
 }

@@ -3,7 +3,6 @@ using GoodHamburger.Domain.Enums;
 using GoodHamburger.Domain.Exceptions;
 using GoodHamburger.Domain.Interfaces.Repository;
 using GoodHamburger.Shared.DTOs;
-using Mapster;
 
 namespace GoodHamburger.Application.Services
 {
@@ -18,63 +17,42 @@ namespace GoodHamburger.Application.Services
 
         public async Task<IEnumerable<PromocaoDto>> ObterAtivasAsync()
         {
-            var regras = await _repository.ObterTodasAtivasAsync();
-
-            return regras.Select(r => new PromocaoDto
-            {   Id = r.Id,
-                Nome = r.Nome,
-                Percentual = r.Percentual,
-                Ativo = r.Ativo,
-                Requisitos = r.Requisitos
-                    .Select(x => x.TipoItem)
-                    .ToList()
-            });
+            var promocoes = await _repository.ObterTodasAtivasAsync();
+            return promocoes.Select(MapToDto);
         }
 
         public async Task<IEnumerable<PromocaoDto>> ObterTodasPromocoesAsync()
         {
-            var regras = await _repository.ObterTodasPromocoesComRequisitosAsync();
-
-            return regras.Select(r => new PromocaoDto
-            {
-                Id = r.Id,
-                Nome = r.Nome,
-                Percentual = r.Percentual,
-                Ativo = r.Ativo,
-                Requisitos = r.Requisitos != null
-                    ? r.Requisitos.Select(x => x.TipoItem).ToList()
-                    : new List<TipoItem>()
-            });
+            var promocoes = await _repository.ObterTodasPromocoesComRequisitosAsync();
+            return promocoes.Select(MapToDto);
         }
 
         public async Task<PromocaoDto> BuscarPromocaoComRequisitosPorIdAsync(Guid id)
         {
             var promocao = await _repository.BuscarPromocaoComRequisitosPorIdAsync(id);
+            return promocao == null ? null : MapToDto(promocao);
+        }
 
-            if (promocao == null)
-                return null;
+        public async Task AlternarStatusAsync(Guid id)
+        {
+            var promocao = await _repository.GetByIdAsync(id)
+                ?? throw new DomainException("Promoção não encontrada.");
 
+            promocao.AlternarStatus();
+            await _repository.UpdateAsync(promocao);
+        }
+
+        private static PromocaoDto MapToDto(Promocao promocao)
+        {
             return new PromocaoDto
             {
                 Id = promocao.Id,
                 Nome = promocao.Nome,
                 Percentual = promocao.Percentual,
                 Ativo = promocao.Ativo,
-                Requisitos = promocao.Requisitos
-                    .Select(r => r.TipoItem)
-                    .ToList()
+                RequisitosTipo = promocao.RequisitosTipo?.ToList() ?? new List<TipoItem>(),
+                ItensObrigatoriosIds = promocao.ItensObrigatoriosIds?.ToList() ?? new List<Guid>()
             };
-        }
-
-        public async Task AlternarStatusAsync(Guid id)
-        {
-            var promocao = await _repository.GetByIdAsync(id);
-
-            if (promocao == null) throw new DomainException("Promoção não encontrada.");
-
-            promocao.AlternarStatus();
-
-            await _repository.UpdateAsync(promocao);
         }
     }
 }

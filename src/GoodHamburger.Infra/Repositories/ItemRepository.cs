@@ -20,5 +20,24 @@ namespace GoodHamburger.Infra.Repositories
                 .Where(i => ids.Contains(i.Id))
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<Item>> GetAllWithGruposAsync()
+        {
+            return await Context.Itens
+                .Include(i => i.GruposOpcoes)
+                    .ThenInclude(ig => ig.GrupoOpcao)
+                        .ThenInclude(g => g.Opcoes)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<Item?> GetByIdWithGruposOpcoesAsync(Guid id)
+        {
+            return await Context.Itens
+                .Include(i => i.GruposOpcoes)
+                    .ThenInclude(ig => ig.GrupoOpcao)
+                        .ThenInclude(g => g.Opcoes)
+                .FirstOrDefaultAsync(i => i.Id == id);
+        }
     }
 }

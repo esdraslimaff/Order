@@ -1,13 +1,13 @@
 import React from 'react';
-import { type ItemCardapioDto } from '../types';
+import { type ItemCarrinhoResumo } from '../types';
 import { type PedidoResumo } from '../utils/calculadoraPedido';
 
 interface CarrinhoResumoProps {
-  itensNoCarrinho: ItemCardapioDto[];
+  itensNoCarrinho: ItemCarrinhoResumo[];
   resumo: PedidoResumo;
   processando: boolean;
   mensagemErro?: string;
-  onRemover: (item: ItemCardapioDto) => void;
+  onRemover: (itemId: string) => void;
   onFinalizar: () => void;
 }
 
@@ -33,20 +33,43 @@ export const CarrinhoResumo: React.FC<CarrinhoResumoProps> = ({
         ) : (
           <>
             <ul className="list-group list-group-flush mb-3">
-              {itensNoCarrinho.map((item) => (
-                <li key={item.id} className="list-group-item d-flex justify-content-between align-items-center px-0">
-                  <div>
-                    <span className="fw-bold">{item.nome}</span><br />
-                    <small className="text-muted">{formatCurrency(item.precoUnitario)}</small>
-                  </div>
-                  <button 
-                    className="btn btn-sm btn-outline-danger border-0" 
-                    onClick={() => onRemover(item)}
-                  >
-                    <i className="bi bi-trash"></i> Remover
-                  </button>
-                </li>
-              ))}
+              {itensNoCarrinho.map((item) => {
+                const totalOpcoes = item.opcoes.reduce((acc, o) => acc + o.precoUnitario * o.quantidade, 0);
+                const totalItem = item.precoUnitario * item.quantidade + totalOpcoes;
+                // Agrupa opções por nome do grupo
+                const opcoesPorGrupo = item.opcoes.reduce((acc, o) => {
+                  if (!acc[o.nomeGrupo]) acc[o.nomeGrupo] = [];
+                  acc[o.nomeGrupo].push(o);
+                  return acc;
+                }, {} as Record<string, typeof item.opcoes>);
+
+                return (
+                  <li key={item.itemId} className="list-group-item px-0">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div>
+                        <strong>{item.quantidade}x {item.nome} (R$ {item.precoUnitario.toFixed(2)})</strong>
+                        {item.observacao && <small className="d-block text-muted">Obs: {item.observacao}</small>}
+                        {Object.entries(opcoesPorGrupo).map(([grupo, opcoes]) => (
+                          <div key={grupo} className="small mt-1">
+                            <em className="text-secondary">{grupo}:</em>
+                            <ul className="mb-0 ps-3">
+                              {opcoes.map((o, idx) => (
+                                <li key={idx}>{o.quantidade}x {o.nomeOpcao} (+R$ {o.precoUnitario.toFixed(2)})</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="d-flex align-items-center">
+                        <span className="me-2">R$ {totalItem.toFixed(2)}</span>
+                        <button className="btn btn-sm btn-outline-danger border-0" onClick={() => onRemover(item.itemId)}>
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="border-top pt-3">
@@ -74,9 +97,9 @@ export const CarrinhoResumo: React.FC<CarrinhoResumoProps> = ({
               </div>
             )}
 
-            <button 
-              className="btn btn-success w-100 mt-3 py-2 fw-bold" 
-              onClick={onFinalizar} 
+            <button
+              className="btn btn-success w-100 mt-3 py-2 fw-bold"
+              onClick={onFinalizar}
               disabled={processando}
             >
               {processando ? (

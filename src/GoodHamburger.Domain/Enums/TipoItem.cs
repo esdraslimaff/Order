@@ -10,6 +10,7 @@ namespace GoodHamburger.Domain.Enums
     {
         Sanduiche = 1,
         Acompanhamento = 2,
-        Bebida = 3
+        Bebida = 3,
+        Adicional = 4,
     }
 }

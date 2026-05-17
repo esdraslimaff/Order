@@ -26,18 +26,15 @@ namespace GoodHamburger.Application.Tests.Services
             _itemRepoMock = new Mock<IItemRepository>();
             _promocaoRepoMock = new Mock<IPromocaoRepository>();
             _validatorMock = new Mock<IValidator<PedidoRequest>>();
-
-            _service = new PedidoAppService(_pedidoRepoMock.Object,_itemRepoMock.Object,_promocaoRepoMock.Object,_validatorMock.Object);
+            _service = new PedidoAppService(_pedidoRepoMock.Object, _itemRepoMock.Object, _promocaoRepoMock.Object, _validatorMock.Object);
         }
 
         [Fact]
         public async Task CriarPedidoAsync_DeveLancarDomainException_QuandoRequestForInvalido()
         {
             var request = new PedidoRequest();
-            var failures = new List<ValidationFailure> { new ValidationFailure("ItensIds", "Erro de validação") };
-
-            _validatorMock.Setup(v => v.ValidateAsync(request, default))
-                          .ReturnsAsync(new ValidationResult(failures));
+            var failures = new List<ValidationFailure> { new ValidationFailure("Itens", "Erro de validação") };
+            _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult(failures));
 
             Func<Task> act = async () => await _service.CriarPedidoAsync(request);
 
@@ -46,35 +43,54 @@ namespace GoodHamburger.Application.Tests.Services
         }
 
         [Fact]
-        public async Task CriarPedidoAsync_DeveLancarDomainException_QuandoItensNaoForemEncontradosNoBanco()
+        public async Task CriarPedidoAsync_DeveLancarDomainException_QuandoNaoInformarItens()
         {
-            var request = new PedidoRequest(new List<Guid> { Guid.NewGuid(), Guid.NewGuid() });
-
+            var request = new PedidoRequest();
             _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
 
-            _itemRepoMock.Setup(r => r.GetItensPorIdsAsync(request.ItensIds))
-                         .ReturnsAsync(new List<Item> { new Item("X Burger", 5.0m, TipoItem.Sanduiche) });
+            Func<Task> act = async () => await _service.CriarPedidoAsync(request);
+
+            await act.Should().ThrowAsync<DomainException>().WithMessage("Nenhum item informado.");
+        }
+
+        [Fact]
+        public async Task CriarPedidoAsync_DeveLancarDomainException_QuandoItemNaoEncontrado()
+        {
+            var itemId = Guid.NewGuid();
+            var request = new PedidoRequest
+            {
+                Itens = new List<ItemPedidoRequest>
+                {
+                    new ItemPedidoRequest { ItemId = itemId, Quantidade = 1 }
+                }
+            };
+
+            _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
+            _itemRepoMock.Setup(r => r.GetByIdAsync(itemId)).ReturnsAsync((Item?)null);
 
             Func<Task> act = async () => await _service.CriarPedidoAsync(request);
 
             await act.Should().ThrowAsync<DomainException>()
-                     .WithMessage("Um ou mais itens selecionados são inválidos.");
+                     .WithMessage($"Item {itemId} não encontrado.");
         }
 
         [Fact]
         public async Task CriarPedidoAsync_DeveCriarSalvarERetornarPedidoResponse_QuandoSucesso()
         {
             var itemId = Guid.NewGuid();
-            var request = new PedidoRequest(new List<Guid> { itemId });
+            var request = new PedidoRequest
+            {
+                Itens = new List<ItemPedidoRequest>
+                {
+                    new ItemPedidoRequest { ItemId = itemId, Quantidade = 1 }
+                }
+            };
+
             var itemRetornado = new Item("X Burger", 5.0m, TipoItem.Sanduiche);
 
             _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
-
-            _itemRepoMock.Setup(r => r.GetItensPorIdsAsync(request.ItensIds))
-                         .ReturnsAsync(new List<Item> { itemRetornado });
-
-            _promocaoRepoMock.Setup(r => r.ObterTodasAtivasAsync())
-                             .ReturnsAsync(new List<Promocao>());
+            _itemRepoMock.Setup(r => r.GetByIdAsync(itemId)).ReturnsAsync(itemRetornado);
+            _promocaoRepoMock.Setup(r => r.ObterTodasAtivasAsync()).ReturnsAsync(new List<Promocao>());
 
             var result = await _service.CriarPedidoAsync(request);
 
@@ -87,7 +103,13 @@ namespace GoodHamburger.Application.Tests.Services
         public async Task AtualizarPedidoAsync_DeveLancarDomainException_QuandoPedidoNaoExistir()
         {
             var id = Guid.NewGuid();
-            var request = new PedidoRequest(new List<Guid> { Guid.NewGuid() });
+            var request = new PedidoRequest
+            {
+                Itens = new List<ItemPedidoRequest>
+                {
+                    new ItemPedidoRequest { ItemId = Guid.NewGuid(), Quantidade = 1 }
+                }
+            };
 
             _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
             _pedidoRepoMock.Setup(r => r.GetPedidoComItensAsync(id)).ReturnsAsync((Pedido?)null);
@@ -104,18 +126,20 @@ namespace GoodHamburger.Application.Tests.Services
             var pedidoExistente = new Pedido();
 
             var novoItemId = Guid.NewGuid();
-            var request = new PedidoRequest(new List<Guid> { novoItemId });
-
-            _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
-            _pedidoRepoMock.Setup(r => r.GetPedidoComItensAsync(pedidoId)).ReturnsAsync(pedidoExistente);
+            var request = new PedidoRequest
+            {
+                Itens = new List<ItemPedidoRequest>
+                {
+                    new ItemPedidoRequest { ItemId = novoItemId, Quantidade = 1 }
+                }
+            };
 
             var itemRetornado = new Item("X Burger", 5.0m, TipoItem.Sanduiche);
 
-            _itemRepoMock.Setup(r => r.GetItensPorIdsAsync(It.IsAny<List<Guid>>()))
-                         .ReturnsAsync(new List<Item> { itemRetornado });
-
+            _validatorMock.Setup(v => v.ValidateAsync(request, default)).ReturnsAsync(new ValidationResult());
+            _pedidoRepoMock.Setup(r => r.GetPedidoComItensAsync(pedidoId)).ReturnsAsync(pedidoExistente);
+            _itemRepoMock.Setup(r => r.GetByIdAsync(novoItemId)).ReturnsAsync(itemRetornado);
             _promocaoRepoMock.Setup(r => r.ObterTodasAtivasAsync()).ReturnsAsync(new List<Promocao>());
-
 
             await _service.AtualizarPedidoAsync(pedidoId, request);
 
@@ -134,11 +158,11 @@ namespace GoodHamburger.Application.Tests.Services
 
             _pedidoRepoMock.Verify(r => r.DeleteAsync(pedido), Times.Once);
         }
+
         [Fact]
         public async Task RemoverAsync_NaoDeveChamarDelete_QuandoPedidoNaoExistir()
         {
             var idInexistente = Guid.NewGuid();
-
             _pedidoRepoMock.Setup(r => r.GetByIdAsync(idInexistente)).ReturnsAsync((Pedido)null);
 
             await _service.RemoverAsync(idInexistente);

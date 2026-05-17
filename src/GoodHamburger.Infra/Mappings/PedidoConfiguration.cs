@@ -1,11 +1,6 @@
 ﻿using GoodHamburger.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GoodHamburger.Infra.Mappings
 {
@@ -21,6 +16,7 @@ namespace GoodHamburger.Infra.Mappings
             builder.Property(p => p.Subtotal).HasPrecision(18, 2);
             builder.Property(p => p.ValorDesconto).HasPrecision(18, 2);
             builder.Property(p => p.TotalFinal).HasPrecision(18, 2);
+            builder.Property(p => p.ObservacaoGeral).HasMaxLength(500);
 
             builder.HasMany(p => p.Itens)
                    .WithOne()

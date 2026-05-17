@@ -11,5 +11,7 @@ namespace GoodHamburger.Domain.Interfaces
     public interface IItemRepository : IBaseRepository<Item>
     {
         Task<IEnumerable<Item>> GetItensPorIdsAsync(IEnumerable<Guid> ids);
+        Task<IEnumerable<Item>> GetAllWithGruposAsync();
+        Task<Item?> GetByIdWithGruposOpcoesAsync(Guid id);
     }
 }

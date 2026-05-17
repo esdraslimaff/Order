@@ -1,28 +1,37 @@
 ﻿using GoodHamburger.Application.Interfaces;
 using GoodHamburger.Domain.Interfaces;
 using GoodHamburger.Shared.DTOs;
-using Mapster;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace GoodHamburger.Application.Services
+public class CardapioService : ICardapioService
 {
-    public class CardapioService : ICardapioService
+    private readonly IItemRepository _itemRepository;
+
+    public CardapioService(IItemRepository itemRepository) => _itemRepository = itemRepository;
+
+    public async Task<IEnumerable<ItemCardapioDto>> ObterItensAsync()
     {
-        private readonly IItemRepository _itemRepository;
-
-        public CardapioService(IItemRepository itemRepository)
+        var itens = await _itemRepository.GetAllWithGruposAsync();
+        return itens.Select(i => new ItemCardapioDto
         {
-            _itemRepository = itemRepository;
-        }
-
-        public async Task<IEnumerable<ItemCardapioDto>> ObterItensAsync()
-        {
-            var itens = await _itemRepository.GetAllAsync();
-            return itens.Adapt<IEnumerable<ItemCardapioDto>>();
-        }
+            Id = i.Id,
+            Nome = i.Nome,
+            PrecoUnitario = i.PrecoUnitario,
+            Tipo = i.Tipo,
+            GruposOpcoes = i.GruposOpcoes.Select(ig => new GrupoOpcaoDto
+            {
+                Id = ig.GrupoOpcao.Id,
+                Nome = ig.GrupoOpcao.Nome,
+                TipoSelecao = ig.GrupoOpcao.TipoSelecao,
+                Obrigatorio = ig.Obrigatorio,
+                MinimoSelecoes = ig.MinimoSelecoes,
+                MaximoSelecoes = ig.MaximoSelecoes,
+                Opcoes = ig.GrupoOpcao.Opcoes.Select(o => new OpcaoDto
+                {
+                    Id = o.Id,
+                    Nome = o.Nome,
+                    PrecoAdicional = o.PrecoAdicional
+                }).ToList()
+            }).ToList()
+        });
     }
 }

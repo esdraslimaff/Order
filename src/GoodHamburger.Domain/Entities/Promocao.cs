@@ -1,53 +1,52 @@
-﻿using GoodHamburger.Domain.Enums;
+﻿using GoodHamburger.Domain.Entities;
+using GoodHamburger.Domain.Enums;
+using System.Linq;
 
-namespace GoodHamburger.Domain.Entities
+public class Promocao : BaseEntity
 {
-    public class Promocao : BaseEntity
+    public string Nome { get; private set; }
+    public decimal Percentual { get; private set; }
+    public bool Ativo { get; private set; }
+    public List<TipoItem> RequisitosTipo { get; private set; } = new();
+    public List<Guid> ItensObrigatoriosIds { get; private set; } = new();
+    public Promocao(string nome, decimal percentual)
     {
-        public string? Nome { get; private set; }
-        public decimal Percentual { get; private set; }
-        public bool Ativo { get; private set; }
+        Nome = nome;
+        Percentual = percentual;
+        Ativo = true;
+    }
 
-        private readonly List<PromocaoItem> _requisitos = new();
-        public IReadOnlyCollection<PromocaoItem> Requisitos => _requisitos.AsReadOnly();
+    public void AlternarStatus()
+    {
+        Ativo = !Ativo;
+    }
 
-        protected Promocao() { }
+    public void AdicionarRequisitoTipo(TipoItem tipo) => RequisitosTipo.Add(tipo);
+    public void AdicionarItemObrigatorio(Guid itemId) => ItensObrigatoriosIds.Add(itemId);
 
-        public Promocao(string nome, decimal percentual)
+    /// <summary>
+    /// Verifica se esta promoção se aplica à coleção de itens do pedido.
+    /// Ambos os critérios (tipo e itens obrigatórios) são considerados,
+    /// mas apenas se estiverem preenchidos.
+    /// </summary>
+    public bool PodeSerAplicada(IReadOnlyCollection<PedidoItem> itensPedido)
+    {
+        if (!Ativo) return false;
+
+        if (ItensObrigatoriosIds.Any())
         {
-            if (string.IsNullOrWhiteSpace(nome))
-            {
-                throw new ArgumentException("O nome da promoção não pode ser nulo ou vazio.", nameof(nome));
-            }
-
-            if (percentual < 0 || percentual > 1m)
-            {
-                throw new ArgumentException("O percentual de desconto deve estar entre 0 e 1 (0% e 100%).", nameof(percentual));
-            }
-
-            Nome = nome;
-            Percentual = percentual;
-            Ativo = true;
+            var idsPresentes = itensPedido.Select(i => i.ProdutoId).ToHashSet();
+            if (!ItensObrigatoriosIds.All(id => idsPresentes.Contains(id)))
+                return false;
         }
 
-        public bool ContemTodosRequisitos(List<TipoItem> itensPedido) 
+        if (RequisitosTipo.Any())
         {
-            if (itensPedido == null || _requisitos.Count == 0) return false;
-            var requisitos = _requisitos.Select(r => r.TipoItem);
-            return requisitos.All(r => itensPedido.Contains(r)); 
+            var tiposPresentes = itensPedido.Select(i => i.Tipo).Distinct().ToHashSet();
+            if (!RequisitosTipo.All(t => tiposPresentes.Contains(t)))
+                return false;
         }
 
-        public void AdicionarRequisito(TipoItem tipo)
-        {
-            if (_requisitos.Any(r => r.TipoItem == tipo)) return;
-            var requisito = new PromocaoItem(tipo);
-            _requisitos.Add(requisito);
-        }
-
-        public void AlternarStatus()
-        {
-            Ativo = !Ativo;
-        }
-
+        return true;
     }
 }
