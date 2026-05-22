@@ -61,9 +61,6 @@ Inicialmente o projeto utilizava Blazor WebAssembly no front-end. Posteriormente
 🔗 Front-end:
 https://order-2gz.pages.dev
 
-🔗 Back-end:
-https://github.com/esdraslimaff/Good-Hamburger
-
 ---
 
 # 🐳 Executar com Docker
