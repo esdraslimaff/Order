@@ -1,149 +1,102 @@
 # 🍔 Good Hamburger
 
-API REST + Frontend (Blazor WASM) para gerenciamento de pedidos de uma lanchonete.
+Sistema Full Stack para gerenciamento de pedidos, desenvolvido com **ASP.NET Core Web API** e **React**.
+
+O projeto possui autenticação JWT, controle de acesso por perfil (RBAC), aplicação de regras de negócio complexas para composição de pedidos e é totalmente estruturado com base nos princípios de **Clean Architecture**, **Domain-Driven Design (DDD)** e **SOLID**.
 
 ---
 
-## 🎯 Contexto do Projeto
+## 🎯 Sobre o Projeto
 
-Sistema de pedidos com aplicação de regras de promoção baseadas em combinações de itens.
+O sistema simula um ambiente corporativo real e foi desenvolvido com foco em:
 
-O projeto foi desenvolvido com foco em boas práticas de arquitetura (Clean Architecture), separação de responsabilidades e centralização das regras de negócio no domínio.
+- APIs RESTful bem documentadas e desacopladas.
+- Arquitetura em camadas com forte separação de responsabilidades.
+- Regras de negócio centralizadas no domínio.
+- Conteinerização de toda a infraestrutura para facilitar o provisionamento.
 
-Além disso, inclui frontend em Blazor WASM e API REST documentada com Swagger.
+> **Evolução Técnica:** Inicialmente, o projeto utilizava Blazor WebAssembly no front-end. Posteriormente, foi refatorado para **React + TypeScript**, visando maior flexibilidade arquitetural, otimização do fluxo de desenvolvimento e melhor aderência aos ecossistemas front-end modernos.
+
 ---
 
-## 🧱 Arquitetura
+## 🚀 Tecnologias Utilizadas
 
-```
+### Back-end
+
+- C# / .NET 8
+- ASP.NET Core Web API
+- Entity Framework Core
+- SQL Server 2022
+- Autenticação JWT
+- Automação de Migrations
+
+### Front-end
+
+- React
+- TypeScript
+- React Router
+- Context API
+
+### Infraestrutura
+
+- Docker
+- Docker Compose
+
+---
+
+## 🧱 Arquitetura e Estrutura
+
+O código-fonte está dividido para garantir o isolamento do domínio e a inversão de dependência:
+
+```text
 /src
-  /GoodHamburger.WebAPI        # API ASP.NET Core
-  /GoodHamburger.Application   # Casos de uso
-  /GoodHamburger.Domain        # Regras de negócio
-  /GoodHamburger.Infra         # Acesso a dados
-  /GoodHamburger.Shared        # DTOs
-  /GoodHamburger.BlazorWasm    # Frontend
-/tests
+  /GoodHamburger.WebAPI        # Ponto de entrada, Controllers, Middlewares e Configurações
+  /GoodHamburger.Application   # Casos de uso (AppServices) e DTOs de entrada/saída
+  /GoodHamburger.Domain        # Entidades, Agregados, Interfaces de Repositório e Regras de Negócio
+  /GoodHamburger.Infra         # Implementação de Repositórios, EF Core DbContext e Serviços Externos
+  /GoodHamburger.Shared        # Validações (FluentValidation) e utilitários compartilhados
+  /good-hamburger-web          # Aplicação Front-end (React)
+
+/tests                         # Testes automatizados do projeto
 ```
 
 ---
 
-## 🐳 Executar com Docker (RECOMENDADO)
+## 🐳 Como Executar (Docker)
 
-### Pré-requisitos
+A aplicação está totalmente conteinerizada. Não é necessário ter o .NET, Node.js ou SQL Server instalados fisicamente na máquina, apenas o **Docker**.
 
-* Docker
-
-### Subir tudo
+### 1. Clone o repositório
 
 ```bash
-docker compose up --build -d
+git clone https://github.com/esdraslimaff/Order
 ```
 
-### Acessos
+### 2. Execute o projeto
 
-* Frontend (Blazor): [http://localhost:5000](http://localhost:5000)
-* API (Swagger): [http://localhost:8080/swagger](http://localhost:8080/swagger)
-
-> Observação: a API conecta no banco via `Server=db` (nome do serviço no compose).
----
-
-## 🗄️ Inicialização do Banco de Dados
-
-A aplicação aplica automaticamente as migrations do Entity Framework Core na inicialização da API. Esse comportamento está configurado no `Program.cs` da WebAPI, ao final do código, acima do app.Run();.
-
-Esse mecanismo foi pensado principalmente para execução via Docker, onde a API pode iniciar antes do banco de dados estar totalmente disponível.
-
-Nesses casos, o sistema realiza tentativas automáticas de rodar migrations, até que o banco esteja pronto.
-
-Para execução local sem Docker, recomenda-se garantir que o banco de dados esteja disponível antes de iniciar a aplicação(Assim as migrations serão rodadas em cima). Caso a execução automática das migrations seja removida do `Program.cs`, elas podem ser aplicadas manualmente via CLI do Entity Framework Core.
-
-## 📡 Endpoints
-
-### 🧾 Pedidos
-
-* `POST /api/Pedidos` → criar pedido
-* `GET /api/Pedidos` → listar
-* `GET /api/Pedidos/{id}` → obter por id
-* `PUT /api/Pedidos/{id}` → atualizar
-* `DELETE /api/Pedidos/{id}` → remover
-
-### 📖 Cardápio
-
-* `GET /api/Cardapio`
-
-### 💸 Promoções
-
-* `GET /api/Promocao/PromocoesAtivas`
-* `GET /api/Promocao`
-* `GET /api/Promocao/{id}`
-* `PATCH /api/Promocao/{id}/alternar-status`
-
----
-
-## 🧠 Regras de Negócio
-
-* Sanduíche + Batata + Refrigerante → **20%**
-* Sanduíche + Refrigerante → **15%**
-* Sanduíche + Batata → **10%**
-
-Restrições:
-
-* Máx. 1 item por tipo (sanduíche, batata, refrigerante)
-* Itens duplicados retornam erro
-
----
-
-## 📦 Exemplos
-
-### Criar pedido
-
-```http
-POST /api/Pedidos
-Content-Type: application/json
-
-{
-  "itensIds": [
-    "GUID_DO_SANDUICHE",
-    "GUID_DA_BATATA",
-    "GUID_DO_REFRIGERANTE"
-  ]
-}
-```
-
-### Resposta (resumo)
-
-```json
-{
-  "id": "GUID",
-  "subtotal": 9.5,
-  "descontoPercentual": 0.2,
-  "valorDesconto": 1.9,
-  "totalFinal": 7.6
-}
-```
-
-### Erro (exemplo)
-
-```json
-{
-  "title": "Item duplicado",
-  "status": 400,
-  "detail": "Já existe um item deste tipo no pedido."
-}
-```
-
----
-
-## 🧪 Testes
+Na raiz do projeto, execute:
 
 ```bash
-dotnet test
+docker compose up --build
 ```
+
+### 📌 Notas de Inicialização
+
+- A API executará automaticamente as *migrations* no banco de dados SQL Server durante a inicialização do contêiner.
+- Aguarde a mensagem `Application started` aparecer nos logs do terminal.
+
+### 🌐 Acessos
+
+- **Front-end (React):** http://localhost:5000
+- **Back-end (Swagger API):** http://localhost:8080/swagger
 
 ---
 
-## ⚙️ Rodar sem Docker
+## ⚙️ Rodar Localmente (Sem Docker)
+
+Caso prefira rodar via CLI convencional (requer .NET SDK 8 e Node.js 20+):
+
+### 1. Back-end
 
 ```bash
 dotnet restore
@@ -151,26 +104,73 @@ dotnet build
 dotnet run --project src/GoodHamburger.WebAPI
 ```
 
+### 2. Front-end
+
+```bash
+cd src/good-hamburger-web
+
+npm install
+npm run dev
+```
+
 ---
 
-## 🧠 Decisões Técnicas
+## 📡 Funcionalidades e Regras de Negócio
 
-* Separação em camadas (Clean Architecture)
-* Regras de negócio centralizadas e reutilizáveis
-* DTOs para desacoplamento
-* Swagger para documentação
-* Docker para execução simples
+### 🔐 Autenticação e Segurança
+
+- Login com emissão de token JWT.
+- Controle de acesso baseado em Roles (RBAC):
+  - Administrador
+  - Atendente
+
+### 🧾 Gestão de Pedidos
+
+- CRUD completo de pedidos com controle de permissões.
+- Listagem pública do cardápio de produtos.
+
+### 🧠 Lógica de Promoções Automáticas
+
+- **20% de desconto** na compra conjunta de:
+  - Sanduíche + Batata + Refrigerante
+
+- **15% de desconto** na compra conjunta de:
+  - Sanduíche + Refrigerante
+
+- **10% de desconto** na compra conjunta de:
+  - Sanduíche + Batata
+
+### ⚠️ Restrições de Domínio
+
+- Permitido apenas **1 item de cada tipo por pedido**.
+- Tentativas de inserir itens duplicados no mesmo pedido retornam falha de validação da regra de negócio.
 
 ---
 
-## 🔧 Possíveis Melhorias
+## 🧪 Executar Testes
 
-* Fortalecer encapsulamento no domínio(Criar serviço de domínio)
-* Autenticação (JWT)
+Para rodar a suíte de testes automatizados da aplicação:
+
+```bash
+dotnet test
+```
+
+---
+
+## 🔧 Possíveis Melhorias Futuras
+
+- Implementação de mensageria (ex: RabbitMQ) para processamento assíncrono de pedidos.
+- Adição de cache distribuído (Redis) para a listagem do cardápio.
+- Configuração de pipeline CI/CD via GitHub Actions.
+- Adição de telemetria e observabilidade (OpenTelemetry / Serilog).
 
 ---
 
 ## 👨‍💻 Autor
 
-Esdras Lima
-[LinkedIn](https://www.linkedin.com/in/esdrasdev/)
+**Esdras Lima**
+
+Desenvolvedor Full Stack com foco em Back-end (.NET / C#)
+
+- GitHub: github.com/esdraslimaff
+- LinkedIn: linkedin.com/in/esdrasdev

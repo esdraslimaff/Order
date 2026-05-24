@@ -4,12 +4,14 @@ using GoodHamburger.Application.Interfaces;
 using GoodHamburger.Application.Interfaces.Auth;
 using GoodHamburger.Application.Services;
 using GoodHamburger.Domain.Interfaces.Repository;
+using GoodHamburger.Infra.Data;
 using GoodHamburger.Infra.DependencyInjection;
 using GoodHamburger.Infra.Repositories;
 using GoodHamburger.Infra.Services.Auth;
 using GoodHamburger.Shared.Validators;
 using GoodHamburger.WebAPI.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -126,33 +128,33 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// =========================
-// Migrations automáticas (opcional)
-// =========================
-// using (var scope = app.Services.CreateScope())
-// {
-//     var services = scope.ServiceProvider;
-//     var logger = services.GetRequiredService<ILogger<Program>>();
-//
-//     for (int i = 1; i <= 5; i++)
-//     {
-//         try
-//         {
-//             logger.LogInformation("Tentativa {Tentativa} de aplicar as migrations...", i);
-//             var context = services.GetRequiredService<AppDbContext>();
-//
-//             context.Database.Migrate();
-//
-//             logger.LogInformation("Banco de dados criado e populado com sucesso!");
-//             break;
-//         }
-//         catch
-//         {
-//             logger.LogWarning("Banco ainda não está pronto. Aguardando 5 segundos...");
-//             Thread.Sleep(5000);
-//         }
-//     }
-// }
+ //=========================
+ //Migrations automáticas(opcional)
+ //=========================
+ using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    for (int i = 1; i <= 5; i++)
+    {
+        try
+        {
+            logger.LogInformation("Tentativa {Tentativa} de aplicar as migrations...", i);
+            var context = services.GetRequiredService<AppDbContext>();
+
+            context.Database.Migrate();
+
+            logger.LogInformation("Banco de dados criado e populado com sucesso!");
+            break;
+        }
+        catch
+        {
+            logger.LogWarning("Banco ainda não está pronto. Aguardando 5 segundos...");
+            Thread.Sleep(5000);
+        }
+    }
+}
 app.MapGet("/", () => Results.Ok("GoodHamburger API is running!"));
 
 app.Run();
